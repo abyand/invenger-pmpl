@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.springframework.org/schema/data/jaxb"
+      th:replace="~{masterLayout :: layout(~{::title}, ~{::content}, ~{::headContent})}">
+<head>
+    <headContent>
+        <link rel="stylesheet" type="text/css" th:href="@{/css/table.css}">
+        <link rel="stylesheet" type="text/css" th:href="@{/css/modal.css}">
+        <link rel="stylesheet" href="https://cdn.datatables.net/1.10.19/css/dataTables.foundation.min.css">
+
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.5.1/dropzone.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/foundation/6.4.3/css/foundation.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.5.1/dropzone.js"></script>
+
+        <script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+        <script src="https://cdn.datatables.net/1.10.19/js/dataTables.foundation.min.js"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/izimodal-1.6.0@1.6.1/css/iziModal.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/izimodal-1.6.0@1.6.1/js/iziModal.min.js"></script>
+        <script th:src="@{/js/DataTablesAccess.js}"></script>
+
+        <style>
+            .dataTables_filter, .dataTables_info { display: none; }
+        </style>
+
+
+        <script th:inline = "javascript">
+            var tableAccess = null;
+            let preparedCol = DTAccess.generateColumnSpec([
+                {'col':'fullName'},
+                {'col':'email'},
+                {'col':'position'},
+                {'col':'action','searchable' : false,'orderable':false}
+            ]);
+
+            $(document).ready(function(){
+                var datatables = $('#usersTable').DataTable({
+                    processing: true,
+                    serverSide : true,
+                    ajax : {
+                        'type' : 'GET',
+                        'url' : '/user/datatables',
+                        'dataSrc' : function (response) {
+                            let len = response.data.length;
+                            let ref = response.data;
+                            for(let i = 0; i<len; i++){
+                                ref[i]['action'] =
+                                    '<button class="submit" type="submit" onclick="loadDetail('+ref[i].id+')">More</button>' +
+                                    '<button class="submit" type="submit" onclick="deleteUser('+ref[i].id+')" style="background-color: #BB281A;">' +
+                                    '<i class="fas fa-trash"></i>' +
+                                    '</button>'
+
+                            }
+                            return ref;
+                        }
+                    },
+                    columns : preparedCol.column,
+                    columnDefs : preparedCol.columnDefs
+                });
+
+                var searchableList = ['fullName','email','position'];
+
+                for(let i=0;i<searchableList.length;i++){
+                    let input = $('#usersTable [target-col=\"'+searchableList[i]+'\"]');
+                    let target = datatables.column('#usersTable th[col=\"'+searchableList[i]+'\"]');
+                    input.on('keyup change',function () {
+                        if(target.search() !== input.val()){
+                            target.search(input.val()).draw();
+                        }
+                    });
+                }
+
+                tableAccess = new DTAccess(datatables,'usr-',4);
+            });
+            var listPosition = {};
+            var select_superior = {};
+        </script>
+        <title>Users</title>
+
+    </headContent>
+</head>
+<body>
+<content>
+    <!--for ajax request    -->
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+
+
+    <div th:replace="sidebar :: left_sidebar"></div>
+
+    <div id="content">
+        <div th:replace="navbar :: navbar"></div>
+
+        <div class="user-text">Users Table</div>
+        <div style="margin-left: 22px;">
+            <button class="btn" id="userBtn">New User</button>
+        </div>
+        <div style="padding: 50px;">
+            <table id="usersTable" class="display" style="width:100%;">
+                <thead>
+                <tr>
+                    <th><input type="text" style="width: 60px" placeholder="Name.." target-col="fullName"/></th>
+                    <th><input type="text" placeholder="Email.." target-col="email"/></th>
+                    <th>
+                        <select target-col="position">
+                            <option selected value="">&lt;Filter by Position&gt;</option>
+                            <th:block th:each="position : ${positions}">
+                                <option th:value="${position.name}" th:text="${position.name}">Option i</option>
+                            </th:block>
+                        </select>
+                    </th>
+                    <th></th>
+                </tr>
+                <tr>
+                    <th col="fullName">Full Name</th>
+                    <th col="email">Email</th>
+                    <th col="position">Position</th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+                <tbody id="users-table-body">
+                </tbody>
+                <tfoot>
+                <tr>
+                    <th >Full Name</th>
+                    <th >Email</th>
+                    <th >Position</th>
+                    <th>Action</th>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div id="create-user-modal">
+            <div class="modal-body">
+                <form id="create-user-form" action="#" method="POST" enctype="multipart/form-data" th:object="${createUserForm}">
+                    <div class="form-group">
+                        <label class="form-label">Full name *</label>
+                        <input class="form-input" th:field="*{fullName}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Username *</label>
+                        <input class="form-input" th:field="*{username}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email *</label>
+                        <input class="form-input" th:field="*{email}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Telp *</label>
+                        <input class="form-input" th:field="*{telp}">
+                    </div>
+                    <div class="form-group" style="width: 95.5%;">
+                        <label class="form-label">Password *</label>
+                        <input class="form-input" type="password" th:field="*{password}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Superior *</label>
+                        <select class="form-input" style="width: 95.5%; padding-right: 25px;" name="superior_id">
+                            <th:block th:each="user2 : ${users}">
+                                <option th:value="${user2.id}" th:text="${user2.username}">Option i</option>
+                            </th:block>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Position *</label>
+                        <select class="form-input" style="width: 95.5%;padding-right: 25px;" name="position_id">
+                            <th:block th:each="position : ${positions}">
+                                <option th:value="${position.id}" th:text="${position.name}">Option i</option>
+                            </th:block>
+                        </select>
+
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Photo *</label>
+                        <div class="needsclick mx-4 dropzone" id="uploadFile">
+                            <div class="dz-message needsclick" name="user-pict">
+                                Please Upload jpg, jpeg or png file only
+                                <br> Drop the file here or click here for select file
+                                <i class="fa fa-paper-plane-o ml-1"></i>
+                                <br/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-action">
+                        <button class="submit" id="add-user-submit">Add User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="user-detail-modal"></div>
+    <div id="deleteModal" style="display: none">
+        <div class="modal-body">
+            <input name="id" type="hidden">
+            <div>Are you sure you want to delete this user?</div>
+        </div>
+        <div class="modal-footer">
+            <button id="delete-close-btn" type="button" class="btn btn-outline-primary">No</button>
+            <button id="confirm-delete" type="button" class="btn btn-primary">Yes</button>
+        </div>
+    </div>
+
+    <script>
+        Dropzone.autoDiscover = false;
+
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="_csrf"]').attr('content')
+            }
+        });
+
+        function deleteUser(id){
+            let target = $('#deleteModal');
+            target.iziModal({
+                title : 'Delete',
+                width : screen.width*0.2,
+                height : screen.height*0.4,
+                closeButton : true,
+                fullScreen : true,
+                history: false,
+                onOpening : function (modal) {
+                    $('#delete-close-btn').click(function () {
+                        console.log('asd');
+                        $('.iziModal-button-close').click();
+                    });
+
+                    $('#confirm-delete').click(function () {
+                        $.ajax({
+                            type : "POST",
+                            url : '/user/delete/'+id,
+
+                            success: function (response) {
+                                if(response['success']){
+                                    tableAccess.datatables.ajax.reload(null, false);
+                                    toastMessage('success', 'Success', response['message']);
+                                }
+                                else{
+                                    toastMessage('error','Error',response['message']);
+                                }
+                                $('.iziModal-button-close').click();
+
+                            },
+                            error: function (xhr) {
+                                let response = JSON.parse(xhr.responseText);
+                                toastMessage('error','Error',response['message']);
+                                $('.iziModal-button-close').click();
+                            }
+                        }).fail(function (response) {
+                            console.log(response);
+                        });
+                    });
+
+                },
+                onClosed : function (modal) {
+                    target.iziModal('destroy');
+                }
+
+            });
+
+            target.iziModal('open');
+        }
+
+        function loadDetail(idCategory){
+
+            $('#user-detail-modal').iziModal({
+                title : 'User Detail',
+                width : screen.width*0.9,
+                height : screen.height*0.9,
+                closeButton : true,
+                fullScreen : true,
+                history: false,
+                onOpening : function (modal) {
+                    modal.startLoading();
+                    $.get('/user/detail/'+idCategory,function (html) {
+                        $('#user-detail-modal .iziModal-content').html(html);
+                        modal.stopLoading();
+                    }).fail(function (file,response) {
+                        modal.stopLoading();
+                        toastMessage('error','Failed','Something wrong :(');
+                        $('.iziModal-button-close').click();
+                    });
+                },
+                onClosed : function (modal) {
+                    $('#user-detail-modal').iziModal('destroy');
+                }
+
+            });
+            $('#user-detail-modal').iziModal('open');
+
+        }
+
+        $(document).ready(function() {
+
+            var file_upload = null;
+            var uploadFileDZ = null;
+            $('select[name=\"position_id\"] option').each(function () {
+                listPosition[$(this).val()] = $(this).text();
+            });
+
+            $('select[name=\"superior_id\"] option').each(function () {
+                select_superior[$(this).val()] = $(this).text();
+            });
+
+            $('select[name=\"role_id\"] option').each(function () {
+                listRole[$(this).val()] = $(this).text();
+            });
+
+            $('#create-user-modal').iziModal({
+                title : 'New User',
+                width : screen.width*0.5,
+                height : screen.height*0.9,
+                closeButton : true,
+                fullScreen : true,
+                history: false,
+                onClosed : function (modal) {
+                    $('#create-user-form')[0].reset();
+                }
+
+            });
+
+            Dropzone.options.uploadFile = {
+                headers : { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } ,
+                maxFiles : 1,
+                autoProcessQueue : false,
+                url : "#",
+                init : function() {
+                    uploadFileDZ = this;
+                    var prevFile = null;
+                    uploadFileDZ.processQueue();
+                    this.on("addedfile", function(file) {
+                        if(file_upload != null){
+                            this.removeFile(file_upload);
+                        }
+                        file_upload = file;
+                        file.previewElement.addEventListener("click", function() {
+                            uploadFileDZ.hiddenFileInput.click();
+                        });
+                    });
+                }
+            };
+
+            Dropzone.discover();
+
+            $('form#create-user-form').submit(function(e){
+                e.preventDefault();
+                var form = new FormData(this);
+                if(file_upload != null){
+                    form.append("profile_photo",file_upload);
+                }
+                $.ajax({
+                    type: "POST",
+                    url: "[[@{/user/create}]]",
+                    data: form,
+                    success: function(response){
+                        if(response['success']){
+                            tableAccess.datatables.ajax.reload(null, false);
+                            toastMessage('success','Success','New user added to table');
+                            $('#create-user-modal').iziModal('close');
+                            uploadFileDZ.removeFile(file_upload);
+                        }
+                        else{
+                            toastMessage('error','Error',response['message']);
+                        }
+                        console.log(response);
+                    },
+                    error : function(response){
+                        toastMessage('error','Error',response.responseJSON.message);
+                    },
+                    cache: false,
+                    contentType: false,
+                    processData: false
+                });
+
+            });
+
+            $("#userBtn").click(function(){
+                $('#create-user-modal').iziModal('open');
+            });
+
+
+
+
+        });
+
+    </script>
+</content>
+</body>
+</html>

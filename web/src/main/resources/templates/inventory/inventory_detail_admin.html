@@ -1,0 +1,245 @@
+<div class="modal-body" xmlns:th="http://www.w3.org/1999/xhtml">
+    <form id="inventory-detail-form" action="#" method="POST" enctype="multipart/form-data" class="row">
+        <div class="col-md-6">
+            <div class="row">
+                <div class="col-md-12">
+                    <img id="img-dropzone-temp" class="d-block img-fluid mx-auto rounded"
+                         th:src="@{/inventory/pict/{link}(link=${inventory.image})}" style="height: 350px;width:350px;">
+                </div>
+            </div>
+            <div class="row" style="margin-left: 10px">
+                <div class="col-md-12">
+                    <div class="btn-group">
+                        <label>Change picture</label>
+                        <input type="file" name="pict" value="" id="upload-img-btn" class="btn btn-primary my-2"
+                        onchange="update(this);">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6" style="padding-left: 0px">
+            <div class="row my-2">
+                <div class="col-md-5">
+                    <label>Name* :</label>
+                </div>
+                <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" name="name" th:value="${inventory.name}" class="form-control"
+                                   placeholder="Name" onchange="update(this);">
+                        </div>
+                </div>
+            </div>
+            <div class="row my-2">
+                <div class="col-md-5">
+                    <label>Inventory Type* :</label>
+                </div>
+                <div class="col-md-6">
+                    <div class="btn-group">
+                        <select name="type" th:value="${inventory.type}" class="btn-outline-primary form-input"
+                                style="width: 100%;" onchange="update(this);">
+                            <th:block th:each="type : ${itemTypes}">
+                                <th:block th:switch="${type}">
+                                    <option th:case="${inventory.type}" selected="selected" th:value="${type}" th:text="${type}">Option i</option>
+                                    <option th:case="*" th:value="${type}" th:text="${type}">Option i</option>
+                                </th:block>
+                            </th:block>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="row my-2">
+                <div class="col-md-5">
+                    <label>Category* :</label>
+                </div>
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <select id="item-detail-category" class="btn-outline-primary form-input" style="width: 100%;"
+                            th:name="category_id" onchange="update(this);">
+                            <!--option initialize in the script below-->
+                            <option th:value="${inventory.category_id}" th:text="${inventory.category}"></option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="row my-2">
+                <div class="col-md-5">
+                    <label>Price* :</label>
+                </div>
+                <div class="col-md-6">
+                    <form class="form-inline">
+                        <div class="input-group">
+                            <input type="number" name="price" th:value="${inventory.price}" class="form-control"
+                                   placeholder="Price" onchange="update(this);" min="0" required value="0">
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="row my-2">
+                <div class="col-md-5">
+                    <label>Quantity* :</label>
+                </div>
+                <div class="col-md-6">
+                    <input class="form-control" placeholder="Quantity" type="number"
+                           name="quantity" th:value="${inventory.quantity}" min="0"
+                           required value="0" onchange="update(this);">
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">
+                    <label>Description :</label>
+                </div>
+                <div class="col-md-9">
+                    <textarea class="form-control" id="Textarea" rows="3" placeholder="Type here"
+                              name="description" th:text="${inventory.description}"
+                              onchange="update(this);"></textarea>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+<div class="modal-footer">
+    <button id='item-detail-save-btn' data-izimodal-zindex="20000" data-izimodal-preventclose="" type="button" class="btn btn-primary">Save changes</button>
+    <button id="item-detail-close-btn" type="button" class="btn btn-secondary">Close</button>
+</div>
+
+<script>
+    var inventory_id = '[[${inventory.id}]]';
+    var listOfField = {
+        'name' : '[[${inventory.name}]]',
+        'type' : '[[${inventory.type}]]',
+        'category_id' : '[[${inventory.category_id}]]',
+        'price' : '[[${inventory.price}]]',
+        'quantity' : '[[${inventory.quantity}]]',
+        'description' : '[[${inventory.description}]]',
+        'pict' : ''
+    };
+
+
+    function update(field){
+        var attr = $(field).attr('name');
+        if( $(field).val() !== listOfField[attr] ){
+            $(field).notify('Click to cancel change',{
+                position : 'left',
+                autoHide : false,
+                clickToHide: false,
+                className : 'warn'
+            });
+            $(field).prev().click(function () {
+                $('.notifyjs-wrapper').remove();
+                $(field).val(listOfField[attr]);
+            });
+
+        }
+    }
+    $.ajaxSetup({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="_csrf"]').attr('content')
+        }
+    });
+
+    var select2Category = null;
+
+    $(document).ready(function() {
+
+        select2Category = $('#item-detail-category').select2({
+            placeholder : '[[${inventory.category}]]',
+            ajax : {
+                url : '/category/search',
+                params : null,
+                delay : 350,
+                data : function (params) {
+                    let query = {
+                        search : (params.term != null)?params.term:"",
+                        page : (params.page)?params.page:0,
+                        length : 10
+                    };
+                    this.params = query;
+                    return query;
+                },
+                processResults : function (result) {
+                    let params = this['$element'].params;
+                    result.pagination = {
+                        more : params.length*params.page < result['recordsFiltered']
+                    };
+                    return result;
+                }
+            },
+            cache : true
+        });
+
+
+
+        $('#item-detail-save-btn').click(function () {
+            var changedData = {};
+            for(var fieldName in listOfField){
+                var currentVal = $('#inventory-detail-form [name=\"'+fieldName+'\"]').val();
+
+                if(listOfField[fieldName] != currentVal){
+                   changedData[fieldName] = currentVal;
+                }
+            }
+
+            iziToast.question({
+                timeout: 20000,
+                close: true,
+                overlay: true,
+                displayMode: 'once',
+                id: 'question',
+                zindex: 99999,
+                title: 'Hey',
+                message: 'Are you sure ?',
+                position: 'center',
+                buttons: [
+                    ['<button><b>YES</b></button>', function (instance, toast) {
+                        instance.hide({ transitionOut: 'fadeOut' }, toast, 'button');
+                        var form = new FormData();
+                        form.append('id',inventory_id);
+
+                        for(var field in changedData){
+                            if(field !== 'pict'){
+                                form.append(field, changedData[field]);
+                            }
+                            else{
+                                form.append('pict',
+                                    $('#inventory-detail-form [name=\"pict\"]')[0].files[0]);
+                            }
+                        }
+
+                        $.ajax({
+                            type: "POST",
+                            url: "[[@{/inventory/edit}]]",
+                            data: form,
+                            success: function(response){
+                                if(response['success']){
+                                    tableAccess.datatables.ajax.reload(null, false);
+                                    toastMessage('success','Success',response['message']);
+                                }
+                                else{
+                                    toastMessage('error','Error',response['message']);
+                                }
+                            },
+                            cache: false,
+                            contentType: false,
+                            processData: false
+                        });
+                        $('.iziModal-button-close').click();
+
+                    }, true],
+                    ['<button>NO</button>', function (instance, toast) {
+
+                        instance.hide({ transitionOut: 'fadeOut' }, toast, 'button');
+
+                    }]
+                ]
+            });// end iziToast
+
+
+        });// end click listener
+
+
+        $('#item-detail-close-btn').click(function () {
+           $('.iziModal-button-close').click();
+        });
+
+    });
+</script>
